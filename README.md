@@ -3,6 +3,9 @@
 > **Autonomous AI purchasing agent for independent cafes and shops.**
 > Built for the **PayPal AI Hackathon 2026** (Devpost).
 
+- 🌐 **Live Web App**: [https://restockpilot.vercel.app](https://restockpilot.vercel.app)
+- 🐙 **GitHub Repository**: [https://github.com/vikassharma270907-alt/restockpilot](https://github.com/vikassharma270907-alt/restockpilot)
+
 RestockPilot listens to what inventory is running low, searches wholesale supplier catalogs (Channel3), formulates an order guaranteed to fit within a strict budget, and submits it to **PayPal Sandbox Checkout** for one-click human-in-the-loop owner approval. Signature-verified webhooks reconcile payments into an AG Grid ledger.
 
 ![RestockPilot UI Screenshot](./public/screenshot.png)
