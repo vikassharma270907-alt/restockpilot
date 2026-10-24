@@ -8,6 +8,14 @@ interface RequestFormProps {
   initialBudget?: number;
 }
 
+const QUICK_STOCK_ITEMS = [
+  { label: "12oz Cold Cups", icon: "☕", sample: "2 cases of 12oz compostable cold cups" },
+  { label: "Cold Brew Bottles", icon: "🧊", sample: "1 case of 16oz cold brew glass bottles" },
+  { label: "Barista Oat Milk", icon: "🥛", sample: "1 case of barista blend oat milk" },
+  { label: "Kraft Napkins", icon: "🧻", sample: "1 case of kraft dispenser napkins" },
+  { label: "Espresso Beans", icon: "🫘", sample: "1 bulk 5lb bag of espresso beans" },
+];
+
 export function RequestForm({ onSubmit, loading, initialBudget = 80 }: RequestFormProps) {
   const [message, setMessage] = useState("");
   const [budget, setBudget] = useState(initialBudget);
@@ -21,6 +29,14 @@ export function RequestForm({ onSubmit, loading, initialBudget = 80 }: RequestFo
   const handleUseOverbudgetDemo = () => {
     setMessage("We need 4 cases of cold brew bottles, 3 cases of cups, and 2 cases of oat milk");
     setBudget(80);
+  };
+
+  const handleAddQuickItem = (sample: string) => {
+    if (!message.trim()) {
+      setMessage(`We are low on ${sample}.`);
+    } else {
+      setMessage(`${message.trim().replace(/\.$/, "")}, and ${sample}.`);
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -60,8 +76,28 @@ export function RequestForm({ onSubmit, loading, initialBudget = 80 }: RequestFo
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           required
-          rows={4}
+          rows={3}
         />
+
+        {/* Quick stock shortage chips (Page UI pattern) */}
+        <div className="quick-chips-wrapper">
+          <span className="quick-chips-label">Quick add:</span>
+          <div className="quick-chips-list">
+            {QUICK_STOCK_ITEMS.map((item, idx) => (
+              <button
+                key={idx}
+                type="button"
+                className="quick-chip-btn"
+                onClick={() => handleAddQuickItem(item.sample)}
+                title={`Add ${item.label} to order request`}
+              >
+                <span>{item.icon}</span>
+                <span>{item.label}</span>
+                <span className="quick-chip-plus">+</span>
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       <div className="inline-form">
@@ -85,7 +121,7 @@ export function RequestForm({ onSubmit, loading, initialBudget = 80 }: RequestFo
           </div>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "16px", flexWrap: "wrap" }}>
           <button
             type="submit"
             className="btn-primary"

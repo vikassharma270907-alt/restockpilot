@@ -39,8 +39,7 @@ You can test the complete end-to-end purchasing and checkout flow in under 3 min
 
 ## 🛠️ Architecture & Tech Stack
 
-- **Framework**: Next.js 14 (App Router) with React 18 and TypeScript.
-- **AI Agent Framework**: Vercel AI SDK (`ai@4`) with OpenAI `gpt-4o-mini`.
+- **AI Agent Framework**: Vercel AI SDK (`ai@4`) powered by **MiniMax** (`minimaxai/minimax-m3.1-flash`) via **NVIDIA NIM** (hosted API `https://integrate.api.nvidia.com/v1`), with OpenAI `gpt-4o-mini` fallback.
 - **Supplier Search**: Channel3 API (`@channel3/sdk`) for live multi-retailer inventory search.
 - **Payment & Checkout**:
   - Direct integration following [PayPal Developer Get Started](https://developer.paypal.com/get-started).
@@ -75,12 +74,20 @@ PAYPAL_WEBHOOK_ID=your_webhook_id
 # Public URL (for PayPal return redirects and webhooks)
 APP_URL=http://localhost:3000
 
-# Supplier Search & LLM Keys
-CHANNEL3_API_KEY=your_channel3_api_key
+# AI Agent Provider (MiniMax on NVIDIA NIM)
+NVIDIA_API_KEY=nvapi-...
+MINIMAX_API_KEY=nvapi-...
+NVIDIA_BASE_URL=https://integrate.api.nvidia.com/v1
+MINIMAX_MODEL=minimaxai/minimax-m3.1-flash
+
+# Optional OpenAI fallback:
 OPENAI_API_KEY=your_openai_api_key
+
+# Supplier Search Catalog Key
+CHANNEL3_API_KEY=your_channel3_api_key
 ```
 
-*(Note: RestockPilot includes a seamless demo fallback mode, allowing judges and reviewers to test the complete UI and interactive checkout flow even before configuring live API keys).*
+*(Note: RestockPilot connects to **MiniMax via NVIDIA NIM** for autonomous multi-step reasoning, tool execution, and budget guardrails. It includes a seamless demo fallback mode, allowing judges and reviewers to test the complete UI and interactive checkout flow even before configuring live API keys).*
 
 ---
 

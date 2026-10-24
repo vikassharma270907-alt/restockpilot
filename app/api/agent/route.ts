@@ -1,4 +1,4 @@
-import { openai } from "@ai-sdk/openai";
+import { createOpenAI, openai } from "@ai-sdk/openai";
 import { generateText, tool } from "ai";
 import { z } from "zod";
 import { searchProducts } from "@/lib/channel3";
@@ -14,6 +14,38 @@ export type TraceItem = {
   status: "done" | "failed";
   timestamp: string;
 };
+
+// Model resolver supporting MiniMax via NVIDIA NIM (hosted API) and OpenAI fallback
+function getAgentModel() {
+  const nvidiaKey = process.env.NVIDIA_API_KEY || process.env.MINIMAX_API_KEY;
+  if (nvidiaKey) {
+    const nvidia = createOpenAI({
+      baseURL: process.env.NVIDIA_BASE_URL || "https://integrate.api.nvidia.com/v1",
+      apiKey: nvidiaKey,
+    });
+
+    // Note: NVIDIA NIM sunset minimaxai/minimax-m2.7 on 2026-07-27 (returns 410 Gone).
+    // minimaxai/minimax-m3.1-flash is the active, high-performance MiniMax hosted model on NIM.
+    let modelName = process.env.MINIMAX_MODEL || "minimaxai/minimax-m3.1-flash";
+    if (modelName === "minimaxai/minimax-m2.7" || modelName === "minimax/minimax-m2.7") {
+      modelName = "minimaxai/minimax-m3.1-flash";
+    }
+
+    return {
+      model: nvidia(modelName),
+      provider: "minimax",
+      modelName,
+      displayName: `MiniMax (${modelName}) via NVIDIA NIM`,
+    };
+  }
+
+  return {
+    model: openai("gpt-4o-mini"),
+    provider: "openai",
+    modelName: "gpt-4o-mini",
+    displayName: "OpenAI gpt-4o-mini",
+  };
+}
 
 // PayPal Agent Toolkit initialization helper (only when credentials exist)
 function getPayPalToolkit() {
@@ -43,21 +75,29 @@ export async function POST(req: Request) {
   const budget = Number(rules?.budget ?? rawBudget ?? 80);
   const requireApproval = rules?.requireApproval ?? true;
 
-  const hasApiKeys = Boolean(process.env.OPENAI_API_KEY && process.env.PAYPAL_CLIENT_ID);
-  const useDemo = Boolean(demoMode || !hasApiKeys);
+  const hasLlmKey = Boolean(
+    process.env.NVIDIA_API_KEY ||
+    process.env.MINIMAX_API_KEY ||
+    process.env.OPENAI_API_KEY
+  );
+  const useDemo = Boolean(demoMode || !hasLlmKey);
 
   // If in demo mode or missing keys, run the realistic demo flow for judges
   if (useDemo) {
     return handleDemoFlow(message, budget, requireApproval);
   }
 
+  const agentModel = getAgentModel();
+
   try {
     const trace: TraceItem[] = [];
     const paypalToolkit = getPayPalToolkit();
     const paypalTools = paypalToolkit ? paypalToolkit.getTools() : {};
 
+    let createdOrderRecord: any = null;
+
     const result = await generateText({
-      model: openai("gpt-4o-mini"),
+      model: agentModel.model,
       maxSteps: 6,
       system:
         `You are RestockPilot, a purchasing agent for a small shop. Find the best-value products for what the owner needs, ` +
@@ -88,12 +128,25 @@ export async function POST(req: Request) {
             ),
           }),
           execute: async ({ items }) => {
-            const total = items.reduce((s, i) => s + i.unit * i.qty, 0);
+            const total = Math.round(items.reduce((s, i) => s + i.unit * i.qty, 0) * 100) / 100;
             if (total > budget) {
               return { error: `Total $${total.toFixed(2)} is over your $${budget} budget. Remove an item or raise the budget.` };
             }
             const requestId = crypto.randomUUID();
-            const o = await createOrder(items, requestId);
+            let o: { id: string; total: number; approveUrl?: string };
+
+            if (process.env.PAYPAL_CLIENT_ID && process.env.PAYPAL_CLIENT_SECRET) {
+              o = await createOrder(items, requestId);
+            } else {
+              // Simulated sandbox checkout order when PayPal credentials are not yet configured
+              const mockId = `SANDBOX-${Math.random().toString(36).substring(2, 9).toUpperCase()}`;
+              o = {
+                id: mockId,
+                total,
+                approveUrl: `${process.env.APP_URL || "http://localhost:3000"}/api/orders/capture?token=${mockId}`,
+              };
+            }
+
             const record = {
               id: o.id,
               status: "PENDING_APPROVAL" as const,
@@ -103,13 +156,26 @@ export async function POST(req: Request) {
               createdAt: new Date().toISOString(),
             };
             persistOrder(record);
+            createdOrderRecord = record;
             return { orderId: o.id, total: o.total, approveUrl: o.approveUrl };
           },
         }),
       },
     });
 
+    // Add model connection info to trace
+    trace.push({
+      id: `model-${Date.now()}`,
+      toolName: "ai_provider",
+      summary: `RestockPilot reasoning via ${agentModel.displayName}`,
+      resultSummary: `Executed multi-step agent reasoning with $${budget} guardrail`,
+      status: "done",
+      timestamp: new Date().toISOString(),
+    });
+
     // Extract structured trace from result.steps
+    let budgetErrorReason: string | undefined;
+
     if (result.steps) {
       for (let sIdx = 0; sIdx < result.steps.length; sIdx++) {
         const step = result.steps[sIdx];
@@ -133,6 +199,7 @@ export async function POST(req: Request) {
               summary = `Proposed order for $${cost.toFixed(2)} (${itms.length} items)`;
               if (isError) {
                 resultSummary = resData.error;
+                budgetErrorReason = resData.error;
               } else {
                 resultSummary = `Created PayPal sandbox order #${resData?.orderId || ""}`;
               }
@@ -161,8 +228,14 @@ export async function POST(req: Request) {
     return Response.json({
       reply: result.text,
       orders: allOrders,
+      order: createdOrderRecord ?? (allOrders.length > 0 ? allOrders[0] : null),
       trace,
       demo: false,
+      model: agentModel.modelName,
+      provider: agentModel.provider,
+      providerDisplay: agentModel.displayName,
+      budgetExceeded: Boolean(budgetErrorReason),
+      error: budgetErrorReason,
     });
   } catch (error: any) {
     console.error("Live agent execution failed, falling back to demo response:", error);

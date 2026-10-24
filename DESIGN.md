@@ -20,13 +20,14 @@ Signature element: one thermal-receipt docket with item rows, aligned prices, to
 | `--rp-shelf-yellow` | `#F4C20D` | Budget-meter fill and selected-row marker only |
 | `--rp-warning` | `#B3261E` | Errors and budget-blocked states only |
 
-Dark Theme Equivalents (Preserving WCAG AA contrast):
-- `--rp-page`: `#0B111A` (Obsidian navy page ground)
-- `--rp-paper`: `#121A24` (Deep slate docket paper)
-- `--rp-ink`: `#F3F4F6` (High-contrast cool white text)
-- `--rp-action`: `#3B82F6` (Electric cobalt primary action)
-- `--rp-shelf-yellow`: `#FACC15` (Laser yellow budget meter)
-- `--rp-warning`: `#EF4444` (Coral red alert)
+Dark Theme Equivalents (Vercel Geist Obsidian System - Preserving WCAG AA contrast):
+- `--rp-page`: `#000000` (Pitch-black Geist canvas)
+- `--rp-paper`: `#0A0A0A` (Elevated dark card & thermal docket ground)
+- `--rp-ink`: `#EDEDED` (High-contrast crisp white typography)
+- `--rp-action`: `#0070F3` (Vercel electric blue accent; `#FFFFFF` inverted primary button)
+- `--rp-shelf-yellow`: `#F5A623` (Geist amber budget meter & highlights)
+- `--rp-warning`: `#EE0000` (Vercel stop red alert)
+- `--color-stamp`: `#00DF8F` (Vercel emerald / cyan paid stamp)
 
 Use CSS custom properties everywhere. Do not invent new brand accents unless needed for a meaningful semantic state or required by accessibility. Never use yellow as a light-text surface. Use dark ink over yellow. Validate text, control boundaries, and focus indication against WCAG AA contrast requirements.
 
